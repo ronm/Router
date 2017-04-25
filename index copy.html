@@ -1,0 +1,96 @@
+<!doctype html>
+<html class="no-js" lang="">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title></title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!--link rel="stylesheet" href=""-->
+<style>
+
+
+</style>
+</head>
+<body>
+
+<nav app>
+	<a href="/home">Home</a><br />
+	<a href="/about">About</a><br />
+	<a href="/services">Services</a><br />
+	<a href="/contact">Contact</a>
+</nav>
+
+
+
+<script src="//ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+<script>
+(function(){
+	
+	var Router = function(sel) {
+		var self = this;
+		this._routes = [];
+		this.current = null;
+
+		document.querySelector(sel).addEventListener("click", function(e) {
+			if ( e.target.tagName.toLowerCase() === "a" ) {
+				e.preventDefault();
+				history.pushState({page: e.target.pathname}, e.target.textContent, e.target.pathname);
+				self.update();
+			}
+		});
+		
+		return this;
+	};
+
+	Router.prototype = {
+		on: function(route, callback) {
+			this._routes.push({route: route, callback: callback});
+			this.update();
+			return this;
+		},
+		update: function() {
+			if ( this.current !== window.location.pathname ){				
+				var c = this._getClbk();
+				if ( c ) {
+					this.current = window.location.pathname;
+					c.callback();
+				}
+			}
+		},
+		_getClbk: function() {
+			return this._routes.find(function(r) { return r.route === window.location.pathname; });
+		}
+	};
+
+	window.Router = Router;
+
+})();
+
+
+
+
+(function(){
+	
+	var r = new Router('[app]');
+	
+	r.on('/', function() {
+		fetch('home.html')
+		console.log( "home" );
+	}).on('/home', function() {
+		console.log( "home" );
+	}).on('/about', function() {
+		fetch('/partials/about.html').then(res => res.text()).then(function(res) {
+			console.log(res)	
+		})	
+		console.log( "about" );
+	}).on('/services', function() {
+		console.log( "services" );
+	}).on('/contact', function() {
+		console.log( "contact" );
+	});
+	
+	
+})();
+</script>
+</body>
+</html>

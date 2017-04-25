@@ -1,0 +1,120 @@
+<!doctype html>
+<html class="no-js" lang="">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<title>LINKCreative: {{title}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+
+[render-view] {
+	/* temp solution */
+	border: 1px solid transparent;
+	border-width: 1px 0;
+	overflow: hidden;
+	position: relative;
+}
+
+.render-view-enter {
+	animation-name: fadeInRight;
+	animation-duration: 1s;
+	animation-fill-mode: both;	
+	transform: translateX(100%);
+}
+
+.render-view-leave {
+	animation-name: fadeOutLeft;
+	animation-duration: 1s;
+	animation-fill-mode: both;	
+}
+
+.render-view-leave ~ .render-item {
+	position: absolute;
+	top: 0;
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translate3d(100%, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes fadeOutLeft {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+    transform: translate3d(-100%, 0, 0);
+  }
+}
+
+
+</style>
+</head>
+<body>
+
+<header>
+	<h1>Here's my Header</h1>
+	<nav>
+		<a href="/">Home</a><br />
+		<a href="/about">About</a><br />
+		<a href="/services">Services</a><br />
+		<a href="/contact">Contact</a>
+	</nav>
+</header>
+
+
+
+
+<div render-view></div>
+
+<footer>
+	<h1>Here's my Footer</h1>
+</footer>
+
+
+
+
+
+<script src="event-delegation.js"></script>
+<script src="router.js"></script>
+<script>
+(function(){
+	
+	var router = new Router('[render-view]', [
+		{ path: ['/', '/home'], name: "home" },
+		{ path: '/about', name: "about" }, 
+		{ path: '/services', name: "services" }, 
+		{ path: '/contact', name: "contact" }
+	]).on('home', function() {
+		console.log( "home" );
+	}).on('about', function() {
+		console.log( "about" );
+	}).on('services', function() {
+		console.log( "services" );
+	}).on('contact', function() {
+		document.querySelector("#main").addEventListener("click", function() {
+			console.log("hooray")
+		});
+	});
+
+	
+	document.querySelector('nav').on("click", "a", function(event) {
+		var target = event.target;
+		event.preventDefault();
+		history.pushState({page: target.pathname}, target.textContent, target.pathname);
+		router.update();
+	});
+
+})();
+</script>
+</body>
+</html>
