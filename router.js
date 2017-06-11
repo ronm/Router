@@ -1,132 +1,129 @@
-// wrapper class
-// animation or transitionend
-// base path
-
-let location = window.location;
-
-class Router {
-	constructor(sel, routes) {
-		this.currentPath = null;			
-		this._routes = [];
-		this._callbacks = [];
-		this.renderView = document.querySelector(sel);
-		this.pageTitlePlaceHolder = this._getPageTitle().textContent;
-		this.routes(routes);
-		this.update();	
-		this._init();
-	}
+(function (root, factory) {
+    if (typeof define === 'function' && define.amd) {
+        define([], factory);
+    } else if (typeof module === 'object' && module.exports) {
+        module.exports = factory();
+    } else {
+        root.returnExports = factory();
+  }
+}(this, function () {
 	
-	on(name, callback) {
-		this._callbacks.push({name: name, callback: callback});
-		return this;
-	}
+	let location = window.location;
 	
-	onRequest(callback) {
-		this._callbacks.push({name: "_start", callback: callback});
-		return this;		
-	}
-	
-	onResponse(callback) {
-		this._callbacks.push({name: "_end", callback: callback});
-		return this;
-	}
-	
-	onInserted(callback) {
-		this._callbacks.push({name: "_inserted", callback: callback});
-		return this;		
-	}
-	
-	update() {
-		this._update();
-	}		
-
-	routes(routes) {
-		routes.forEach(route => this._routes.push(route));
-	}
-	
-	_init() {
-		window.addEventListener("popstate", () => this.update());
-	}
-	
-	_update() {
-		if ( this.currentPath !== location.pathname ) {	
-			this.currentPath = location.pathname;
-			let current = this._getCurrent();
-			
-			this._processClbks({ name: "_start" });
-
-			if ( !current.cache ) {
-				/*fetch('/partials/' + current.name + '.html').then(res => res.text()).then(res => { current.cache = res; this._onRouteLoad(current); });*/
-
-				let http = new XMLHttpRequest();
-				http.addEventListener("load", res => {
-					if ( http.status === 200 ) {
-						current.cache = http.responseText;
-						this._onRouteLoad(current);
-					}
-				});
-				http.open("GET", '/partials/' + current.name + '.html');
-				http.send();
-			} else {
-				this._onRouteLoad(current);
-			}
+	return class Router {
+		constructor(sel, routes) {
+			this.currentRoute = null;			
+			this.routes = [];
+			this.updatePageTitle = true;
+			this.updateHistory = true;
+			this._callbacks = [];
+			this._renderView = document.querySelector(sel);
+			this._pageTitlePlaceHolder = document.title;
+			routes.forEach(route => this.add(route));
+			window.addEventListener("popstate", event => this._request(event));
 		}
-	}		
-	
-	_onRouteLoad(route) {
-		let wrapper = document.createElement('div'),
-			wrapperClass = wrapper.classList,
-			current = this.renderView.children;
-
-		wrapperClass.add("render-item");
-		wrapper.innerHTML = route.cache;			
-
-		if ( current.length ) {
-			[].forEach.call(current, c => {
-				c.addEventListener("animationend", () => { 
-					c.parentNode && c.parentNode.removeChild(c);
-				});
-				c.classList.add('render-view-leave');
-				c.classList.remove('render-view-enter');
-			});
-			
-			wrapper.addEventListener("animationend", () => { 
-				if (wrapper.classList.contains("render-view-enter") ) {
-					this._processClbks({ name: "_inserted" });
-				}
-			});
-			
-			wrapperClass.add("render-view-enter");
-		}
-		this.renderView.appendChild(wrapper);
-		this._updatePageTitle(route);
-		this._processClbks(route);
-		this._processClbks({ name: "_end" });		
-		if ( !location.hash ) window.scrollTo(0,0);
-	}
-	
-	_getCurrent() { 
-		let current = this._routes.filter(function(r) {
-			return Array.isArray(r.path) ? r.path.indexOf(location.pathname) > -1 : r.path === location.pathname;
-		});
 		
-		return current.length ? current[0] : null;
-	}
-	
-	_processClbks(current) {
-		return this._callbacks.filter(function(c) { return c.name === current.name; }).forEach(c => {
-			c.callback(current);
-		});
-	}
-	
-	_getPageTitle() {
-		return document.head.querySelector('title');
-	}
-	
-	_updatePageTitle(route) {
-		let title = route.name.charAt(0).toUpperCase() + route.name.slice(1);
-		this._getPageTitle().textContent = this.pageTitlePlaceHolder.replace('{{title}}', title);
-	}
-}
+		on(name, callback) {
+			this._callbacks.push({name: name, callback: callback});
+			return this;
+		}
+		
+		add(route) { this.routes.push(route); }	
+		
+		request(name) { return this._request(name); }
+		
+		onResponse(callback) {
+			this._callbacks.push({name: "_end", callback: callback});
+			return this;
+		}
+		/*onRequest(callback) { this._callbacks.push({name: "_start", callback: callback}); return this; }*/
+		/*onInserted(callback) { this._callbacks.push({name: "_inserted", callback: callback}); return this; }*/
 
-module.exports = Router;
+		load() {
+			return this.request(this.getRoute().name);
+		}
+
+		getRoute(name = location.pathname) {
+			var route = this.routes.filter(r => r.name === name || (Array.isArray(r.path) ? r.path.indexOf(name) > -1 : r.path === name));
+			return route.length ? route[0] : (this.getRoute("/404") || null );
+		}	
+
+		_request(name) {
+			if ( name && name !== window.location.pathname) {
+				let route = typeof name !== "string" && name.type === "popstate" ? this.getRoute() : this.getRoute(name);
+
+				if ( typeof name === "string" && this.updateHistory ) { 
+					this._updateHistory(route);
+				}
+				
+				if ( this.currentRoute !== route ) {
+					this._getContent(route).then(route => this._processRoute(route));			
+					this.currentRoute = route;
+				}
+			}
+
+			return this;
+		}
+
+		_getContent(route) {
+			return new Promise((resolve, reject) => {
+				if ( !route.cache ) {
+					let http = new XMLHttpRequest();
+					http.addEventListener("load", res => {
+						if ( http.status === 200 ) {
+							route.cache = http.responseText;
+							resolve(route);
+						}
+					});
+					http.open("GET", route.filepath);
+					http.send();
+				} else {
+					resolve(route);
+				}
+			})
+		}
+
+		_processRoute(route) {
+			let wrapper = document.createElement('div'),
+				current = this._renderView.querySelector(".render-item");
+
+			wrapper.addEventListener("animationend", (event) => {
+				if ( wrapper.nextElementSibling ) {
+					wrapper.parentNode && wrapper.parentNode.removeChild(wrapper);
+				}
+			});			
+	
+			if ( current ) {
+				current.classList.add('render-view-leave');
+				current.classList.remove('render-view-enter');
+			}
+
+			wrapper.classList.add("render-item", "render-view-enter");
+			wrapper.innerHTML = route.cache;		
+
+			this._renderView.appendChild(wrapper);
+			
+			if ( this.updatePageTitle ) { 
+				this._updatePageTitle(route);
+			}
+
+			this._processClbks(route, wrapper);
+			this._processClbks({ name: "_end" }, wrapper);	
+			if ( !location.hash ) window.scrollTo(0,0);
+		}
+
+		_processClbks(current, wrapper = null) {
+			return this._callbacks.filter(c => c.name === current.name).forEach(c => c.callback(this.getRoute(), current, wrapper));
+		}
+
+		_updatePageTitle(route) {
+			let title = route.name.charAt(0).toUpperCase() + route.name.slice(1);
+			document.title = this._pageTitlePlaceHolder + ":  " + title;		
+		}
+		
+		_updateHistory(route) {
+			var path = Array.isArray(route.path) ? route.path[0] : route.path;
+			history.pushState({page: path}, route.name, path);
+		}		
+	}
+}));

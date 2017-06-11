@@ -84,7 +84,6 @@
 
 
 
-<script src="event-delegation.js"></script>
 <script src="router.js"></script>
 <script>
 (function(){
@@ -106,12 +105,11 @@
 		});
 	});
 
-	
-	document.querySelector('nav').on("click", "a", function(event) {
-		var target = event.target;
-		event.preventDefault();
-		history.pushState({page: target.pathname}, target.textContent, target.pathname);
-		router.update();
+	[].slice.apply(document.querySelector('nav a')).forEach(function(el) {
+		el.addEventListener("click", function(event) {
+			event.preventDefault();
+			router.request(el.pathname);
+		})
 	});
 
 })();
